@@ -19,7 +19,6 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.security.InvalidKeyException;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Iterator;
 import java.util.LinkedList;
@@ -34,6 +33,7 @@ import org.apache.sshd.common.Channel;
 import org.apache.sshd.common.Cipher;
 import org.apache.sshd.common.Compression;
 import org.apache.sshd.common.KeyExchange;
+import org.apache.sshd.common.KeyPairProvider;
 import org.apache.sshd.common.Mac;
 import org.apache.sshd.common.NamedFactory;
 import org.apache.sshd.common.Session;
@@ -53,6 +53,7 @@ import org.apache.sshd.common.random.SingletonRandomFactory;
 import org.apache.sshd.common.signature.SignatureDSA;
 import org.apache.sshd.common.signature.SignatureRSA;
 import org.apache.sshd.common.util.SecurityUtils;
+import org.apache.sshd.server.CommandFactory;
 import org.apache.sshd.server.FileSystemFactory;
 import org.apache.sshd.server.FileSystemView;
 import org.apache.sshd.server.ForwardingFilter;
@@ -64,23 +65,16 @@ import org.apache.sshd.server.channel.ChannelDirectTcpip;
 import org.apache.sshd.server.channel.ChannelSession;
 import org.apache.sshd.server.kex.DHG1;
 import org.apache.sshd.server.kex.DHG14;
-import org.apache.sshd.server.keyprovider.PEMGeneratorHostKeyProvider;
 import org.apache.sshd.server.session.ServerSession;
 import org.apache.sshd.server.session.SessionFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class GitSshDaemon extends SshServer {
-	public static void main(String[] args) throws IOException {
-		GitSshDaemon gsshd = new GitSshDaemon();
-		gsshd.setup();
-		gsshd.setPort(2323);
-		gsshd.start();
-	}
+public class GitblitSshServer extends SshServer {
 
-	private static final Logger log = LoggerFactory.getLogger(GitSshDaemon.class);
+	private static final Logger log = LoggerFactory.getLogger(GitblitSshServer.class);
 
-	public GitSshDaemon() {
+	public GitblitSshServer() {
 		setSessionFactory(new SessionFactory() {
 			@Override
 			protected ServerSession createSession(final IoSession io) throws Exception {
@@ -92,7 +86,7 @@ public class GitSshDaemon extends SshServer {
 				}
 
 				final ServerSession s = (ServerSession) super.createSession(io);
-				final SocketAddress peer = io.getRemoteAddress();
+				s.setAttribute(GitblitSshClient.ATTR_KEY, new GitblitSshClient());
 
 				io.getCloseFuture().addListener(new IoFutureListener<IoFuture>() {
 					@Override
@@ -105,6 +99,15 @@ public class GitSshDaemon extends SshServer {
 		});
 	}
 
+	/**
+	 * Performs most of default configuration (setup random sources, setup ciphers,
+	 * etc; also, support for forwarding and filesystem is explicitly disallowed).
+	 * 
+	 * {@link #setKeyPairProvider(KeyPairProvider)} and
+	 * {@link #setPublickeyAuthenticator(PublickeyAuthenticator)} are left for you.
+	 * And applying {@link #setCommandFactory(CommandFactory)} is probably wise if you
+	 * want something to actually happen when users do successfully authenticate.
+	 */
 	@SuppressWarnings("unchecked")
 	public void setup() {
 		if (!SecurityUtils.isBouncyCastleRegistered())
@@ -179,9 +182,9 @@ public class GitSshDaemon extends SshServer {
 			}
 		});
 
-		setKeyPairProvider(new PEMGeneratorHostKeyProvider("sshkey.pem"));	//FIXME: configurable location
-
-		setupUserAuth(new UserServicePublickeyAuthenticator());
+		setUserAuthFactories(Arrays.<NamedFactory<UserAuth>>asList(
+				new UserAuthPublicKey.Factory())
+		);
 	}
 
 	protected void setupCiphers() {
@@ -206,12 +209,5 @@ public class GitSshDaemon extends SshServer {
 			}
 		}
 		setCipherFactories(avail);
-	}
-
-	protected void setupUserAuth(final PublickeyAuthenticator pubkey) {
-		List<NamedFactory<UserAuth>> authFactories = new ArrayList<NamedFactory<UserAuth>>();
-		authFactories.add(new UserAuthPublicKey.Factory());
-		setUserAuthFactories(authFactories);
-		setPublickeyAuthenticator(pubkey);
 	}
 }

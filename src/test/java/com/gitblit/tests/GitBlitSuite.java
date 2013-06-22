@@ -67,6 +67,7 @@ public class GitBlitSuite {
 
 	static int port = 8280;
 	static int gitPort = 8300;
+	static int sshPort = 8323;
 	static int shutdownPort = 8281;
 
 	public static String url = "http://localhost:" + port;
@@ -124,9 +125,9 @@ public class GitBlitSuite {
 		Executors.newSingleThreadExecutor().execute(new Runnable() {
 			public void run() {
 				GitBlitServer.main("--httpPort", "" + port, "--httpsPort", "0", "--shutdownPort",
-						"" + shutdownPort, "--gitPort", "" + gitPort, "--repositoriesFolder",
-						"\"" + GitBlitSuite.REPOSITORIES.getAbsolutePath() + "\"", "--userService",
-						"test-users.conf", "--settings", "test-gitblit.properties",
+						"" + shutdownPort, "--gitPort", "" + gitPort, "--sshPort", "" + sshPort,
+						"--repositoriesFolder", "\"" + GitBlitSuite.REPOSITORIES.getAbsolutePath() + "\"",
+						"--userService", "test-users.conf", "--settings", "test-gitblit.properties",
 						"--baseFolder", "data");
 			}
 		});

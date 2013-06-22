@@ -111,6 +111,8 @@ import com.gitblit.models.ServerStatus;
 import com.gitblit.models.SettingModel;
 import com.gitblit.models.TeamModel;
 import com.gitblit.models.UserModel;
+import com.gitblit.transport.ssh.GitblitSshClient;
+import com.gitblit.transport.ssh.SshTransportDaemon;
 import com.gitblit.utils.ArrayUtils;
 import com.gitblit.utils.Base64;
 import com.gitblit.utils.ByteFormat;
@@ -204,6 +206,8 @@ public class GitBlit implements ServletContextListener {
 	private FanoutService fanoutService;
 
 	private GitDaemon gitDaemon;
+
+	private SshTransportDaemon sshTransportDaemon;
 
 	public GitBlit() {
 		if (gitblit == null) {
@@ -3401,6 +3405,7 @@ public class GitBlit implements ServletContextListener {
 		configureJGit();
 		configureFanout();
 		configureGitDaemon();
+		configureSshTransportDaemon();
 		
 		ContainerUtils.CVE_2007_0450.test();
 	}
@@ -3507,6 +3512,20 @@ public class GitBlit implements ServletContextListener {
 			} catch (IOException e) {
 				gitDaemon = null;
 				logger.error(MessageFormat.format("Failed to start Git daemon on {0}:{1,number,0}", bindInterface, port), e);
+			}
+		}
+	}
+	
+	protected void configureSshTransportDaemon() {
+		int port = settings.getInteger(Keys.transport.ssh.port, 0);
+		String bindInterface = settings.getString(Keys.transport.ssh.address, "localhost");
+		if (port > 0) {
+			try {
+				sshTransportDaemon = new SshTransportDaemon(bindInterface, port, baseFolder, getRepositoriesFolder());
+				sshTransportDaemon.start();
+			} catch (IOException e) {
+				sshTransportDaemon = null;
+				logger.error(MessageFormat.format("Failed to start Ssh transport daemon on {0}:{1,number,0}", bindInterface, port), e);
 			}
 		}
 	}
@@ -3671,6 +3690,9 @@ public class GitBlit implements ServletContextListener {
 		}
 		if (gitDaemon != null) {
 			gitDaemon.stop();
+		}
+		if (sshTransportDaemon != null) {
+			sshTransportDaemon.stop();
 		}
 	}
 	
